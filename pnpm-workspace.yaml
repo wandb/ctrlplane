@@ -19,7 +19,7 @@ catalog:
   "tsx": ^4.19.1
   "lodash": ^4.17.21
   "@types/lodash": ^4.17.5
-  "next": 15.2.1
+  "next": 15.2.3
   "next-auth": "5.0.0-beta.25"
   "@next/eslint-plugin-next": ^15.2.2
   "bullmq": ^5.15.0
