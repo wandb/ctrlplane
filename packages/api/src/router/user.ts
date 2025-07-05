@@ -31,24 +31,33 @@ const authRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { email, password, name } = input;
 
-      const user = await ctx.db
-        .select()
-        .from(schema.user)
-        .where(eq(schema.user.email, email))
-        .then(takeFirstOrNull);
-
-      if (user != null)
+      const passwordHash = hashSync(password, 10);
+      try {
+        // Use INSERT with ON CONFLICT to prevent race condition
+        return await ctx.db
+          .insert(schema.user)
+          .values({ name, email, passwordHash })
+          .onConflictDoNothing({ target: schema.user.email })
+          .returning()
+          .then((result) => {
+            if (result.length === 0) {
+              throw new TRPCError({
+                code: "CONFLICT",
+                message: "User already exists",
+              });
+            }
+            return result[0];
+          });
+      } catch (error) {
+        // Handle database constraint violations
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         throw new TRPCError({
           code: "CONFLICT",
           message: "User already exists",
         });
-
-      const passwordHash = hashSync(password, 10);
-      return db
-        .insert(schema.user)
-        .values({ name, email, passwordHash })
-        .returning()
-        .then(takeFirst);
+      }
     }),
 });
 

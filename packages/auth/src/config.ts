@@ -131,7 +131,9 @@ export const authConfig: NextAuthConfig = {
     signIn: async (opts) => {
       const { user } = opts;
       if (user.email == null || user.id == null) return;
-      const domain = user.email.split("@")[1]!;
+      const emailParts = user.email.split("@");
+      if (emailParts.length !== 2) return; // Invalid email format
+      const domain = emailParts[1];
       const isEmailVerified = opts.profile?.email_verified !== null;
 
       if (isEmailVerified) {

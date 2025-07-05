@@ -58,8 +58,10 @@ export const workspaceEmailDomainMatchingRouter = createTRPCRouter({
       const email = ctx.session.user.email;
       if (email == null) return;
 
-      const domain = email.split("@")[1];
-      if (domain == null) return;
+      const emailParts = email.split("@");
+      if (emailParts.length !== 2) return; // Invalid email format
+      const domain = emailParts[1];
+      if (domain == null || domain.length === 0) return;
 
       return ctx.db
         .insert(workspaceEmailDomainMatching)
