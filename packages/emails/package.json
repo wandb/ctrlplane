@@ -23,7 +23,7 @@
     "@ctrlplane/ui": "workspace:*",
     "@react-email/components": "0.0.33",
     "@t3-oss/env-core": "catalog:",
-    "nodemailer": "^6.10.0",
+    "nodemailer": "^7.0.7",
     "react-dom": "catalog:react19"
   },
   "devDependencies": {
