@@ -47,7 +47,7 @@
   },
   "dependencies": {
     "handlebars": "^4.7.8",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.1.1",
     "lodash": "catalog:",
     "mustache": "^4.2.0",
     "uuid": "^10.0.0"
