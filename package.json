@@ -52,7 +52,8 @@
       "tree-sitter-yaml"
     ],
     "overrides": {
-      "globby@10.0.2": "^11.1.0"
+      "globby@10.0.2": "^11.1.0",
+      "next": "15.2.6"
     }
   }
 }

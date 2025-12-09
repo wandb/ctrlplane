@@ -30,7 +30,7 @@
     "@hookform/resolvers": "catalog:",
     "@icons-pack/react-simple-icons": "^10.2.0",
     "@monaco-editor/react": "^4.7.0",
-    "@next/bundle-analyzer": "15.3.5",
+    "@next/bundle-analyzer": "15.3.6",
     "@octokit/auth-app": "catalog:",
     "@octokit/rest": "catalog:",
     "@octokit/webhooks": "^13.7.4",
