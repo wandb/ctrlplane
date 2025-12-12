@@ -1,0 +1,54 @@
+[tools]
+node = "22"
+pnpm = "10.19.0"
+
+[tasks."dev:build"]
+description = "Install dependencies"
+run = [
+  "pnpm install",
+  "pnpm build",
+]
+
+[tasks."dev:up"]
+description = "Start Development Docker infrastructure"
+depends = ["dev:build"]
+run = "docker compose -f docker-compose.dev.yaml up -d"
+
+[tasks."dev:down"]
+description = "Stop Docker infrastructure containers"
+run = "docker compose -f docker-compose.dev.yaml down"
+
+[tasks."dev:restart"]
+description = "Restart Docker infrastructure (down then up)"
+depends = ["dev:down", "dev:up"]
+
+[tasks."dev:db:migrate"]
+description = "Build and run migrations"
+depends = ["dev:up"]
+run = [
+  "pnpm -F @ctrlplane/db migrate",
+]
+
+[tasks."dev:db:studio"]
+description = "Open Drizzle Studio for database management"
+run = "pnpm db:studio"
+
+[tasks.test]
+description = "Run all tests"
+run = "pnpm test"
+
+[tasks.lint]
+description = "Run linters and check code style"
+run = "pnpm lint"
+
+[tasks.format]
+description = "Check code formatting with Prettier"
+run = "pnpm format"
+
+[tasks.ci]
+description = "Run full CI suite (lint, format, typecheck, test)"
+run = "pnpm format typecheck lint test"
+
+[tasks.clean]
+description = "Clean build artifacts and caches"
+run = "pnpm clean:workspaces"
