@@ -33,18 +33,6 @@ run = [
 description = "Open Drizzle Studio for database management"
 run = "pnpm db:studio"
 
-[tasks.test]
-description = "Run all tests"
-run = "pnpm test"
-
-[tasks.lint]
-description = "Run linters and check code style"
-run = "pnpm lint"
-
-[tasks.format]
-description = "Check code formatting with Prettier"
-run = "pnpm format"
-
 [tasks.ci]
 description = "Run full CI suite (lint, format, typecheck, test)"
 run = "pnpm format typecheck lint test"
