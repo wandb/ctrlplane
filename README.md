@@ -70,8 +70,9 @@ If you would like to self-host Plane, please see our [deployment guide](https://
    ```
    docker compose -f docker-compose.dev.yaml up -d
    ```
-7. `cd packages/db && pnpm migrate && cd ../..` to run the migrations.
-8. Run `pnpm dev` to start the development server.
+7. `pnpm install && pnpm build` to install dependencies and build the code.
+8. `pnpm -F @ctrlplane/db migrate` to run the migrations.
+9. Run `pnpm dev` to start the development server.
 
 You are ready to make changes to the code. Do not forget to refresh the browser
 (in case it does not auto-reload).
