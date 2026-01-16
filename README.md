@@ -41,7 +41,7 @@ orchestration** tool.
 The easiest way to get started with Ctrlplane is by creating a [Ctrlplane
 Cloud](https://app.ctrlplane.dev) account.
 
-If you would like to self-host Plane, please see our [deployment guide](https://docs.ctrlplane.dev/install/helm).
+If you would like to self-host Ctrlplane, please see our [deployment guide](https://docs.ctrlplane.dev/install/helm).
 
 | Installation methods | Docs link                                                                                                                                                                             |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
