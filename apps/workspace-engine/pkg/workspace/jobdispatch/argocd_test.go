@@ -6,15 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
-	"text/template"
 	"time"
 
 	"workspace-engine/pkg/messaging"
 	"workspace-engine/pkg/oapi"
 	"workspace-engine/pkg/statechange"
+	"workspace-engine/pkg/templatefuncs"
 	"workspace-engine/pkg/workspace/store"
 
-	"github.com/Masterminds/sprig/v3"
 	applicationpkg "github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/stretchr/testify/require"
@@ -158,6 +157,52 @@ metadata:
 			expectError: false,
 			expectName:  "",
 		},
+		{
+			name: "YAML with leading document separator",
+			input: `---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-with-separator
+  namespace: argocd
+spec:
+  project: default`,
+			expectError: false,
+			expectName:  "app-with-separator",
+		},
+		{
+			name: "multi-document YAML only parses first document",
+			input: `---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: first-app
+  namespace: argocd
+spec:
+  project: default
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: second-app
+  namespace: argocd
+spec:
+  project: other`,
+			expectError: false,
+			expectName:  "first-app", // Only the first document should be parsed
+		},
+		{
+			name: "YAML without leading separator",
+			input: `apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: no-separator-app
+  namespace: argocd
+spec:
+  project: default`,
+			expectError: false,
+			expectName:  "no-separator-app",
+		},
 	}
 
 	for _, tt := range tests {
@@ -253,12 +298,13 @@ func TestIsRetryableError(t *testing.T) {
 
 // Helper to execute a template with the same options as DispatchJob
 func executeTemplate(templateStr string, data *oapi.TemplatableJob) (string, error) {
-	t, err := template.New("test").Funcs(sprig.TxtFuncMap()).Option("missingkey=zero").Parse(templateStr)
+	t, err := templatefuncs.Parse("test", templateStr)
 	if err != nil {
 		return "", err
 	}
 	var buf bytes.Buffer
-	if err := t.Execute(&buf, data); err != nil {
+	// Use Map() for lowercase template variables, matching the actual dispatcher behavior
+	if err := t.Execute(&buf, data.Map()); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
@@ -346,32 +392,32 @@ func TestTemplateExecution_BasicFields(t *testing.T) {
 	}{
 		{
 			name:     "job id",
-			template: `{{ .Job.Id }}`,
+			template: `{{ .job.id }}`,
 			expected: "job-123",
 		},
 		{
 			name:     "resource name",
-			template: `{{ .Resource.Name }}`,
+			template: `{{ .resource.name }}`,
 			expected: "my-app",
 		},
 		{
 			name:     "resource identifier",
-			template: `{{ .Resource.Identifier }}`,
+			template: `{{ .resource.identifier }}`,
 			expected: "my-app-identifier",
 		},
 		{
 			name:     "environment name",
-			template: `{{ .Environment.Name }}`,
+			template: `{{ .environment.name }}`,
 			expected: "production",
 		},
 		{
 			name:     "deployment name",
-			template: `{{ .Deployment.Name }}`,
+			template: `{{ .deployment.name }}`,
 			expected: "my-deployment",
 		},
 		{
 			name:     "release version name",
-			template: `{{ .Release.Version.Name }}`,
+			template: `{{ .release.version.name }}`,
 			expected: "v1.2.3",
 		},
 	}
@@ -395,17 +441,17 @@ func TestTemplateExecution_ReleaseVariables(t *testing.T) {
 	}{
 		{
 			name:     "access variable by key",
-			template: `{{ index .Release.Variables "IMAGE_TAG" }}`,
+			template: `{{ index .release.variables "IMAGE_TAG" }}`,
 			expected: "v1.2.3",
 		},
 		{
 			name:     "access multiple variables",
-			template: `tag={{ index .Release.Variables "IMAGE_TAG" }}, replicas={{ index .Release.Variables "REPLICAS" }}`,
+			template: `tag={{ index .release.variables "IMAGE_TAG" }}, replicas={{ index .release.variables "REPLICAS" }}`,
 			expected: "tag=v1.2.3, replicas=3",
 		},
 		{
 			name:     "missing variable returns empty with missingkey=zero",
-			template: `{{ index .Release.Variables "NONEXISTENT" }}`,
+			template: `{{ index .release.variables "NONEXISTENT" }}`,
 			expected: "",
 		},
 	}
@@ -429,12 +475,12 @@ func TestTemplateExecution_ResourceConfig(t *testing.T) {
 	}{
 		{
 			name:     "access config value",
-			template: `{{ index .Resource.Config "namespace" }}`,
+			template: `{{ index .resource.config "namespace" }}`,
 			expected: "production",
 		},
 		{
 			name:     "access nested config",
-			template: `{{ index .Resource.Config "cluster" }}`,
+			template: `{{ index .resource.config "cluster" }}`,
 			expected: "us-west-2",
 		},
 	}
@@ -458,22 +504,22 @@ func TestTemplateExecution_SprigFunctions(t *testing.T) {
 	}{
 		{
 			name:     "lower function",
-			template: `{{ .Resource.Name | lower }}`,
+			template: `{{ .resource.name | lower }}`,
 			expected: "my-app",
 		},
 		{
 			name:     "upper function",
-			template: `{{ .Resource.Name | upper }}`,
+			template: `{{ .resource.name | upper }}`,
 			expected: "MY-APP",
 		},
 		{
 			name:     "replace function",
-			template: `{{ .Resource.Name | replace "-" "_" }}`,
+			template: `{{ .resource.name | replace "-" "_" }}`,
 			expected: "my_app",
 		},
 		{
 			name:     "default function for missing value",
-			template: `{{ index .Release.Variables "MISSING" | default "default-value" }}`,
+			template: `{{ index .release.variables "MISSING" | default "default-value" }}`,
 			expected: "default-value",
 		},
 	}
@@ -493,20 +539,20 @@ func TestTemplateExecution_FullArgoCDApplication(t *testing.T) {
 	templateStr := `apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: {{ .Resource.Name }}
+  name: {{ .resource.name }}
   namespace: argocd
   labels:
-    app: {{ .Resource.Name }}
-    env: {{ .Environment.Name }}
+    app: {{ .resource.name }}
+    env: {{ .environment.name }}
 spec:
   project: default
   source:
     repoURL: https://github.com/example/repo
-    path: manifests/{{ .Environment.Name }}
-    targetRevision: {{ index .Release.Variables "IMAGE_TAG" }}
+    path: manifests/{{ .environment.name }}
+    targetRevision: {{ index .release.variables "IMAGE_TAG" }}
   destination:
     server: https://kubernetes.default.svc
-    namespace: {{ index .Resource.Config "namespace" }}`
+    namespace: {{ index .resource.config "namespace" }}`
 
 	result, err := executeTemplate(templateStr, job)
 	require.NoError(t, err)
@@ -533,7 +579,7 @@ func TestTemplateExecution_NilResource(t *testing.T) {
 	job.Resource = nil
 
 	// With missingkey=zero, accessing nil resource should not panic
-	templateStr := `name: {{ if .Resource }}{{ .Resource.Name }}{{ else }}unknown{{ end }}`
+	templateStr := `name: {{ if .resource }}{{ .resource.name }}{{ else }}unknown{{ end }}`
 	result, err := executeTemplate(templateStr, job)
 	require.NoError(t, err)
 	require.Equal(t, "name: unknown", result)
@@ -548,11 +594,11 @@ func TestTemplateExecution_InvalidTemplate(t *testing.T) {
 	}{
 		{
 			name:     "unclosed action",
-			template: `{{ .Job.Id`,
+			template: `{{ .job.id`,
 		},
 		{
 			name:     "unknown function",
-			template: `{{ nonexistentFunc .Job.Id }}`,
+			template: `{{ nonexistentFunc .job.id }}`,
 		},
 	}
 
@@ -742,15 +788,15 @@ func TestArgoCDDispatcher_DispatchJob_Success(t *testing.T) {
 	templateStr := `apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: {{ .Resource.Name }}
+  name: {{ .resource.name }}
   namespace: argocd
   labels:
-    env: {{ .Environment.Name }}
+    env: {{ .environment.name }}
 spec:
   project: default
   source:
     repoURL: https://github.com/example/repo
-    targetRevision: {{ .Release.Version.Name }}
+    targetRevision: {{ .release.version.name }}
   destination:
     server: https://kubernetes.default.svc
     namespace: production`
@@ -817,10 +863,10 @@ func TestArgoCDDispatcher_DispatchJob_CleansApplicationName(t *testing.T) {
 	templateStr := `apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: {{ .Resource.Name }}
+  name: {{ .resource.name }}
   namespace: argocd
   labels:
-    original-name: {{ .Resource.Name }}`
+    original-name: {{ .resource.name }}`
 
 	config := createArgoCDJobConfig(t, templateStr)
 
@@ -939,7 +985,7 @@ func TestArgoCDDispatcher_DispatchJob_InvalidTemplate(t *testing.T) {
 	)
 
 	// Invalid template syntax
-	templateStr := `{{ .Resource.Name`
+	templateStr := `{{ .resource.name`
 
 	config := createArgoCDJobConfig(t, templateStr)
 
@@ -1035,8 +1081,19 @@ metadata:
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to create ArgoCD application")
 
-	// Verify Kafka message was NOT published (since ArgoCD failed)
-	require.Len(t, mockProducer.publishedMessages, 0)
+	// Verify a failure event was published with the error message
+	require.Len(t, mockProducer.publishedMessages, 1)
+	msg := mockProducer.publishedMessages[0]
+
+	var event map[string]any
+	err = json.Unmarshal(msg.value, &event)
+	require.NoError(t, err)
+
+	data := event["data"].(map[string]any)
+	jobData := data["job"].(map[string]any)
+	require.Equal(t, "failure", jobData["status"])
+	require.Contains(t, jobData["message"], "Failed to create ArgoCD application")
+	require.Contains(t, jobData["message"], "my-app")
 }
 
 func TestArgoCDDispatcher_DispatchJob_VerificationContinuesOnError(t *testing.T) {
@@ -1081,6 +1138,194 @@ metadata:
 
 	// Kafka message was still published
 	require.Len(t, mockProducer.publishedMessages, 1)
+}
+
+func TestArgoCDDispatcher_DispatchJob_InvalidTemplateOutput_SendsMessage(t *testing.T) {
+	testStore := createTestStore(t)
+	mockClient := &mockArgoCDClient{}
+	mockProducer := &mockKafkaProducer{}
+	mockVerifier := &mockVerificationStarter{}
+
+	dispatcher := NewArgoCDDispatcherWithFactories(
+		testStore,
+		mockVerifier,
+		func(serverAddr, authToken string) (ArgoCDApplicationClient, error) {
+			return mockClient, nil
+		},
+		func() (messaging.Producer, error) {
+			return mockProducer, nil
+		},
+	)
+
+	// Valid template syntax that produces invalid YAML/JSON output
+	templateStr := `not valid yaml or json: [[[`
+
+	config := createArgoCDJobConfig(t, templateStr)
+
+	job := &oapi.Job{
+		Id:             "job-123",
+		ReleaseId:      testStore.Jobs.Items()["job-123"].ReleaseId,
+		JobAgentConfig: config,
+	}
+
+	err := dispatcher.DispatchJob(context.Background(), job)
+	require.Error(t, err)
+
+	// Verify a failure event was published with invalidJobAgent status
+	require.Len(t, mockProducer.publishedMessages, 1)
+	msg := mockProducer.publishedMessages[0]
+
+	var event map[string]any
+	err = json.Unmarshal(msg.value, &event)
+	require.NoError(t, err)
+
+	data := event["data"].(map[string]any)
+	jobData := data["job"].(map[string]any)
+	require.Equal(t, "invalidJobAgent", jobData["status"])
+	require.Contains(t, jobData["message"], "Template output is not a valid ArgoCD Application")
+}
+
+func TestArgoCDDispatcher_DispatchJob_InvalidTemplate_SendsMessage(t *testing.T) {
+	testStore := createTestStore(t)
+	mockClient := &mockArgoCDClient{}
+	mockProducer := &mockKafkaProducer{}
+	mockVerifier := &mockVerificationStarter{}
+
+	dispatcher := NewArgoCDDispatcherWithFactories(
+		testStore,
+		mockVerifier,
+		func(serverAddr, authToken string) (ArgoCDApplicationClient, error) {
+			return mockClient, nil
+		},
+		func() (messaging.Producer, error) {
+			return mockProducer, nil
+		},
+	)
+
+	// Invalid template syntax
+	templateStr := `{{ .resource.name`
+
+	config := createArgoCDJobConfig(t, templateStr)
+
+	job := &oapi.Job{
+		Id:             "job-123",
+		ReleaseId:      testStore.Jobs.Items()["job-123"].ReleaseId,
+		JobAgentConfig: config,
+	}
+
+	err := dispatcher.DispatchJob(context.Background(), job)
+	require.Error(t, err)
+
+	// Verify a failure event was published with invalidJobAgent status
+	require.Len(t, mockProducer.publishedMessages, 1)
+	msg := mockProducer.publishedMessages[0]
+
+	var event map[string]any
+	err = json.Unmarshal(msg.value, &event)
+	require.NoError(t, err)
+
+	data := event["data"].(map[string]any)
+	jobData := data["job"].(map[string]any)
+	require.Equal(t, "invalidJobAgent", jobData["status"])
+	require.Contains(t, jobData["message"], "Invalid ArgoCD Application template syntax")
+}
+
+func TestArgoCDDispatcher_DispatchJob_MissingApplicationName_SendsMessage(t *testing.T) {
+	testStore := createTestStore(t)
+	mockClient := &mockArgoCDClient{}
+	mockProducer := &mockKafkaProducer{}
+	mockVerifier := &mockVerificationStarter{}
+
+	dispatcher := NewArgoCDDispatcherWithFactories(
+		testStore,
+		mockVerifier,
+		func(serverAddr, authToken string) (ArgoCDApplicationClient, error) {
+			return mockClient, nil
+		},
+		func() (messaging.Producer, error) {
+			return mockProducer, nil
+		},
+	)
+
+	// Template missing metadata.name
+	templateStr := `apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  namespace: argocd
+spec:
+  project: default`
+
+	config := createArgoCDJobConfig(t, templateStr)
+
+	job := &oapi.Job{
+		Id:             "job-123",
+		ReleaseId:      testStore.Jobs.Items()["job-123"].ReleaseId,
+		JobAgentConfig: config,
+	}
+
+	err := dispatcher.DispatchJob(context.Background(), job)
+	require.Error(t, err)
+
+	// Verify a failure event was published with invalidJobAgent status
+	require.Len(t, mockProducer.publishedMessages, 1)
+	msg := mockProducer.publishedMessages[0]
+
+	var event map[string]any
+	err = json.Unmarshal(msg.value, &event)
+	require.NoError(t, err)
+
+	data := event["data"].(map[string]any)
+	jobData := data["job"].(map[string]any)
+	require.Equal(t, "invalidJobAgent", jobData["status"])
+	require.Contains(t, jobData["message"], "ArgoCD Application template must include metadata.name")
+}
+
+func TestArgoCDDispatcher_DispatchJob_ConnectionError_SendsMessage(t *testing.T) {
+	testStore := createTestStore(t)
+	mockProducer := &mockKafkaProducer{}
+	mockVerifier := &mockVerificationStarter{}
+
+	dispatcher := NewArgoCDDispatcherWithFactories(
+		testStore,
+		mockVerifier,
+		func(serverAddr, authToken string) (ArgoCDApplicationClient, error) {
+			return nil, errors.New("connection refused")
+		},
+		func() (messaging.Producer, error) {
+			return mockProducer, nil
+		},
+	)
+
+	templateStr := `apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: my-app
+  namespace: argocd`
+
+	config := createArgoCDJobConfig(t, templateStr)
+
+	job := &oapi.Job{
+		Id:             "job-123",
+		ReleaseId:      testStore.Jobs.Items()["job-123"].ReleaseId,
+		JobAgentConfig: config,
+	}
+
+	err := dispatcher.DispatchJob(context.Background(), job)
+	require.Error(t, err)
+
+	// Verify a failure event was published with invalidIntegration status
+	require.Len(t, mockProducer.publishedMessages, 1)
+	msg := mockProducer.publishedMessages[0]
+
+	var event map[string]any
+	err = json.Unmarshal(msg.value, &event)
+	require.NoError(t, err)
+
+	data := event["data"].(map[string]any)
+	jobData := data["job"].(map[string]any)
+	require.Equal(t, "invalidIntegration", jobData["status"])
+	require.Contains(t, jobData["message"], "Failed to connect to ArgoCD server")
+	require.Contains(t, jobData["message"], "argocd.example.com")
 }
 
 func TestArgoCDDispatcher_SendJobUpdateEvent_PublishesCorrectEvent(t *testing.T) {
