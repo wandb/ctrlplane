@@ -9,9 +9,14 @@ import (
 	"workspace-engine/pkg/selector"
 	"workspace-engine/pkg/workspace/releasemanager/action"
 	"workspace-engine/pkg/workspace/store"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
-type ReconcileFn func(ctx context.Context, target *oapi.ReleaseTarget) error
+var actionTracer = otel.Tracer("EnvironmentProgressionAction")
+
+type ReconcileFn func(ctx context.Context, targets []*oapi.ReleaseTarget) error
 
 type EnvironmentProgressionAction struct {
 	store       *store.Store
@@ -30,6 +35,15 @@ func (a *EnvironmentProgressionAction) Name() string {
 }
 
 func (a *EnvironmentProgressionAction) Execute(ctx context.Context, trigger action.ActionTrigger, actx action.ActionContext) error {
+	ctx, span := actionTracer.Start(ctx, "EnvironmentProgressionAction.Execute")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("trigger", string(trigger)),
+		attribute.String("release.id", actx.Release.ID()),
+		attribute.String("job.id", actx.Job.Id),
+		attribute.String("job.status", string(actx.Job.Status)),
+	)
 	if trigger != action.TriggerJobSuccess {
 		return nil
 	}
@@ -57,7 +71,8 @@ func (a *EnvironmentProgressionAction) Execute(ctx context.Context, trigger acti
 		return nil
 	}
 
-	progressionDependentTargets, err := a.getProgressionDependentTargets(ctx, policiesThatCrossedThreshold)
+	deploymentId := actx.Release.ReleaseTarget.DeploymentId
+	progressionDependentTargets, err := a.getProgressionDependentTargets(ctx, policiesThatCrossedThreshold, deploymentId)
 	if err != nil {
 		return fmt.Errorf("failed to get progression dependent targets: %w", err)
 	}
@@ -66,7 +81,7 @@ func (a *EnvironmentProgressionAction) Execute(ctx context.Context, trigger acti
 		return nil
 	}
 
-	return a.reconcileTargets(ctx, progressionDependentTargets)
+	return a.reconcileFn(ctx, progressionDependentTargets)
 }
 
 func (a *EnvironmentProgressionAction) getEnvironment(envId string) *oapi.Environment {
@@ -103,15 +118,32 @@ func (a *EnvironmentProgressionAction) getProgressionDependentPolicies(ctx conte
 	return policies, nil
 }
 
-func (a *EnvironmentProgressionAction) getProgressionDependentTargets(ctx context.Context, policies []*oapi.Policy) ([]*oapi.ReleaseTarget, error) {
+func (a *EnvironmentProgressionAction) getProgressionDependentTargets(ctx context.Context, policies []*oapi.Policy, deploymentId string) ([]*oapi.ReleaseTarget, error) {
 	targetMap := make(map[string]*oapi.ReleaseTarget)
-	for _, policy := range policies {
-		policyTargets, err := a.store.ReleaseTargets.GetForPolicy(ctx, policy)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get release targets for policy %s: %w", policy.Id, err)
+
+	deploymentTargets, err := a.store.ReleaseTargets.GetForDeployment(ctx, deploymentId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deployment targets: %w", err)
+	}
+
+	for _, target := range deploymentTargets {
+		environment, ok := a.store.Environments.Get(target.EnvironmentId)
+		if !ok {
+			continue
 		}
-		for _, target := range policyTargets {
-			targetMap[target.Key()] = target
+		resource, ok := a.store.Resources.Get(target.ResourceId)
+		if !ok {
+			continue
+		}
+		deployment, ok := a.store.Deployments.Get(target.DeploymentId)
+		if !ok {
+			continue
+		}
+
+		for _, policy := range policies {
+			if selector.MatchPolicy(ctx, policy, selector.NewResolvedReleaseTarget(environment, deployment, resource)) {
+				targetMap[target.Key()] = target
+			}
 		}
 	}
 
@@ -120,15 +152,6 @@ func (a *EnvironmentProgressionAction) getProgressionDependentTargets(ctx contex
 		targetList = append(targetList, target)
 	}
 	return targetList, nil
-}
-
-func (a *EnvironmentProgressionAction) reconcileTargets(ctx context.Context, targets []*oapi.ReleaseTarget) error {
-	for _, target := range targets {
-		if err := a.reconcileFn(ctx, target); err != nil {
-			return fmt.Errorf("failed to reconcile target %s: %w", target.Key(), err)
-		}
-	}
-	return nil
 }
 
 func (a *EnvironmentProgressionAction) filterPoliciesWhereThresholdJustCrossed(

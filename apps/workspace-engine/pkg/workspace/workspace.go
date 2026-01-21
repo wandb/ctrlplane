@@ -34,8 +34,9 @@ func New(ctx context.Context, id string, options ...WorkspaceOption) *Workspace 
 
 	// Create release manager with trace store (will panic if nil)
 	ws.releasemanager = releasemanager.New(s, ws.traceStore)
-	reconcileFn := func(ctx context.Context, target *oapi.ReleaseTarget) error {
-		return ws.releasemanager.ReconcileTarget(ctx, target, releasemanager.WithTrigger(trace.TriggerJobSuccess))
+
+	reconcileFn := func(ctx context.Context, targets []*oapi.ReleaseTarget) error {
+		return ws.releasemanager.ReconcileTargets(ctx, targets, releasemanager.WithTrigger(trace.TriggerJobSuccess))
 	}
 
 	ws.actionOrchestrator = action.
