@@ -31,12 +31,12 @@ require (
 	github.com/swaggo/gin-swagger v1.6.1
 	github.com/teambition/rrule-go v1.8.2
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.63.0
-	go.opentelemetry.io/otel v1.38.0
+	go.opentelemetry.io/otel v1.40.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.38.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.38.0
-	go.opentelemetry.io/otel/sdk v1.38.0
-	go.opentelemetry.io/otel/sdk/metric v1.38.0
-	go.opentelemetry.io/otel/trace v1.38.0
+	go.opentelemetry.io/otel/sdk v1.40.0
+	go.opentelemetry.io/otel/sdk/metric v1.40.0
+	go.opentelemetry.io/otel/trace v1.40.0
 	google.golang.org/protobuf v1.36.10
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -64,7 +64,7 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.27.0 // indirect
-	github.com/goccy/go-yaml v1.18.0 // indirect
+	github.com/goccy/go-yaml v1.18.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.2 // indirect
@@ -93,9 +93,9 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.0 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
-	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
+	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.38.0 // indirect
-	go.opentelemetry.io/otel/metric v1.38.0 // indirect
+	go.opentelemetry.io/otel/metric v1.40.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.7.1 // indirect
 	go.uber.org/mock v0.6.0 // indirect
 	golang.org/x/arch v0.20.0 // indirect
@@ -228,7 +228,7 @@ require (
 	github.com/redis/go-redis/v9 v9.7.3 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/rogpeppe/go-internal v1.13.1 // indirect
+	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
@@ -250,7 +250,7 @@ require (
 	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f // indirect
 	golang.org/x/net v0.46.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
-	golang.org/x/sys v0.37.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/term v0.36.0 // indirect
 	golang.org/x/text v0.30.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
