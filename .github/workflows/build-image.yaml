@@ -44,14 +44,17 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Authenticate to Google Cloud
+        if: github.ref == 'refs/heads/main'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/242006882880/locations/global/workloadIdentityPools/github/providers/github
 
       - name: Set up Cloud SDK
+        if: github.ref == 'refs/heads/main'
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Configure Docker for Artifact Registry
+        if: github.ref == 'refs/heads/main'
         run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
       - name: Extract metadata (tags, labels) for Docker
