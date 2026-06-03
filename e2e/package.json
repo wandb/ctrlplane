@@ -58,6 +58,6 @@
     "js-yaml": "^4.1.1",
     "lodash": "catalog:",
     "mustache": "^4.2.0",
-    "uuid": "^10.0.0"
+    "uuid": "^14.0.0"
   }
 }
